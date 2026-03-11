@@ -375,6 +375,98 @@
 				margin: 0.35rem 0 0;
 			}
 
+			.game-section {
+				padding-top: 0.5rem;
+				padding-bottom: 3rem;
+			}
+
+			.game-wrap {
+				background: linear-gradient(145deg, rgb(30 41 59 / 72%), rgb(15 23 42 / 82%));
+				border: 1px solid rgb(148 163 184 / 22%);
+				border-radius: 20px;
+				padding: 1.25rem;
+				box-shadow: 0 26px 50px rgb(2 6 23 / 34%);
+			}
+
+			.game-layout {
+				display: grid;
+				grid-template-columns: 1fr 0.95fr;
+				gap: 1.2rem;
+				align-items: center;
+			}
+
+			.game-subtitle {
+				margin: 0.6rem 0 0;
+				color: #cbd5e1;
+			}
+
+			.ttt-board {
+				display: grid;
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				gap: 0.6rem;
+			}
+
+			.ttt-cell {
+				border: 1px solid rgb(148 163 184 / 30%);
+				border-radius: 14px;
+				background: linear-gradient(145deg, rgb(15 23 42 / 92%), rgb(30 41 59 / 86%));
+				color: #f8fafc;
+				font-size: clamp(1.6rem, 4.5vw, 2.3rem);
+				font-weight: 800;
+				min-height: 88px;
+				cursor: pointer;
+				transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+			}
+
+			.ttt-cell:hover:enabled {
+				transform: translateY(-2px);
+				border-color: rgb(249 115 22 / 72%);
+				box-shadow: 0 12px 22px rgb(249 115 22 / 18%);
+			}
+
+			.ttt-cell:disabled {
+				cursor: not-allowed;
+				opacity: 0.98;
+			}
+
+			.ttt-cell.x {
+				color: #fdba74;
+			}
+
+			.ttt-cell.o {
+				color: #86efac;
+			}
+
+			.ttt-panel {
+				background: rgb(15 23 42 / 58%);
+				border: 1px solid rgb(148 163 184 / 18%);
+				border-radius: 16px;
+				padding: 1rem;
+			}
+
+			.ttt-status {
+				margin: 0;
+				font-size: 0.98rem;
+				color: #fde68a;
+				min-height: 1.7em;
+			}
+
+			.ttt-score {
+				display: flex;
+				gap: 0.6rem;
+				flex-wrap: wrap;
+				margin: 0.9rem 0 1rem;
+			}
+
+			.score-chip {
+				padding: 0.45rem 0.65rem;
+				border-radius: 999px;
+				font-size: 0.84rem;
+				background: rgb(30 41 59 / 86%);
+				border: 1px solid rgb(148 163 184 / 24%);
+				color: #e2e8f0;
+			}
+
 			footer {
 				border-top: 1px solid rgb(148 163 184 / 18%);
 				padding: 1.3rem 0 2rem;
@@ -385,7 +477,8 @@
 			@media (max-width: 980px) {
 				.hero-grid,
 				.cards,
-				.steps {
+				.steps,
+				.game-layout {
 					grid-template-columns: 1fr;
 				}
 
@@ -547,10 +640,253 @@
 					</div>
 				</div>
 			</section>
+
+			<section class="game-section" id="play-game">
+				<div class="container">
+					<div class="game-wrap">
+						<div class="game-layout">
+							<div>
+								<h2>Take a break: Tic-Tac-Toe vs BrickBot</h2>
+								<p class="game-subtitle">
+									Play a quick round while planning your next build. You are X, BrickBot is O.
+								</p>
+								<div class="ttt-board" id="ttt-board" aria-label="Tic-Tac-Toe board"></div>
+							</div>
+
+							<aside class="ttt-panel" aria-label="Game panel">
+								<p class="ttt-status" id="ttt-status">Your turn. Place an X.</p>
+								<div class="ttt-score" aria-label="Game score">
+									<span class="score-chip" id="ttt-score-you">You: 0</span>
+									<span class="score-chip" id="ttt-score-bot">BrickBot: 0</span>
+									<span class="score-chip" id="ttt-score-draw">Draws: 0</span>
+								</div>
+								<button class="btn btn-primary" id="ttt-restart" type="button">Play again</button>
+							</aside>
+						</div>
+					</div>
+				</div>
+			</section>
 		</main>
 
 		<footer>
 			<div class="container">© 2026 BrickBuilder. Built for modern construction teams.</div>
 		</footer>
+
+		<script>
+			(() => {
+				const boardElement = document.getElementById("ttt-board");
+				const statusElement = document.getElementById("ttt-status");
+				const restartButton = document.getElementById("ttt-restart");
+				const youScoreElement = document.getElementById("ttt-score-you");
+				const botScoreElement = document.getElementById("ttt-score-bot");
+				const drawScoreElement = document.getElementById("ttt-score-draw");
+
+				const HUMAN = "X";
+				const BOT = "O";
+				const WIN_LINES = [
+					[0, 1, 2],
+					[3, 4, 5],
+					[6, 7, 8],
+					[0, 3, 6],
+					[1, 4, 7],
+					[2, 5, 8],
+					[0, 4, 8],
+					[2, 4, 6]
+				];
+
+				const state = {
+					board: Array(9).fill(""),
+					currentTurn: HUMAN,
+					gameOver: false,
+					score: {
+						human: 0,
+						bot: 0,
+						draw: 0
+					}
+				};
+
+				function createBoard() {
+					boardElement.innerHTML = "";
+					state.board.forEach((value, index) => {
+						const cellButton = document.createElement("button");
+						cellButton.type = "button";
+						cellButton.className = `ttt-cell ${value ? value.toLowerCase() : ""}`;
+						cellButton.textContent = value;
+						cellButton.disabled = Boolean(value) || state.gameOver || state.currentTurn !== HUMAN;
+						cellButton.setAttribute("aria-label", `Cell ${index + 1}`);
+						cellButton.addEventListener("click", () => handleHumanMove(index));
+						boardElement.appendChild(cellButton);
+					});
+				}
+
+				function updateScoreboard() {
+					youScoreElement.textContent = `You: ${state.score.human}`;
+					botScoreElement.textContent = `BrickBot: ${state.score.bot}`;
+					drawScoreElement.textContent = `Draws: ${state.score.draw}`;
+				}
+
+				function setStatus(message) {
+					statusElement.textContent = message;
+				}
+
+				function getWinner(board) {
+					for (const [a, b, c] of WIN_LINES) {
+						if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+							return board[a];
+						}
+					}
+					return null;
+				}
+
+				function isDraw(board) {
+					return board.every((cell) => cell !== "") && !getWinner(board);
+				}
+
+				function evaluateRound() {
+					const winner = getWinner(state.board);
+
+					if (winner === HUMAN) {
+						state.gameOver = true;
+						state.score.human += 1;
+						setStatus("You win! BrickBot will get you next round.");
+						updateScoreboard();
+						createBoard();
+						return true;
+					}
+
+					if (winner === BOT) {
+						state.gameOver = true;
+						state.score.bot += 1;
+						setStatus("BrickBot wins this one. Try again!");
+						updateScoreboard();
+						createBoard();
+						return true;
+					}
+
+					if (isDraw(state.board)) {
+						state.gameOver = true;
+						state.score.draw += 1;
+						setStatus("Draw! Solid defense from both sides.");
+						updateScoreboard();
+						createBoard();
+						return true;
+					}
+
+					return false;
+				}
+
+				function minimax(board, depth, isMaximizing) {
+					const winner = getWinner(board);
+
+					if (winner === BOT) {
+						return 10 - depth;
+					}
+
+					if (winner === HUMAN) {
+						return depth - 10;
+					}
+
+					if (board.every((cell) => cell !== "")) {
+						return 0;
+					}
+
+					if (isMaximizing) {
+						let bestScore = -Infinity;
+						for (let index = 0; index < board.length; index += 1) {
+							if (!board[index]) {
+								board[index] = BOT;
+								const score = minimax(board, depth + 1, false);
+								board[index] = "";
+								bestScore = Math.max(bestScore, score);
+							}
+						}
+						return bestScore;
+					}
+
+					let bestScore = Infinity;
+					for (let index = 0; index < board.length; index += 1) {
+						if (!board[index]) {
+							board[index] = HUMAN;
+							const score = minimax(board, depth + 1, true);
+							board[index] = "";
+							bestScore = Math.min(bestScore, score);
+						}
+					}
+					return bestScore;
+				}
+
+				function getBestMove(board) {
+					const emptyIndices = board
+						.map((value, index) => (value ? null : index))
+						.filter((index) => index !== null);
+
+					if (emptyIndices.length === 9) {
+						return 4;
+					}
+
+					let bestScore = -Infinity;
+					let bestMove = emptyIndices[0];
+
+					for (const index of emptyIndices) {
+						board[index] = BOT;
+						const score = minimax(board, 0, false);
+						board[index] = "";
+						if (score > bestScore) {
+							bestScore = score;
+							bestMove = index;
+						}
+					}
+
+					return bestMove;
+				}
+
+				function handleHumanMove(index) {
+					if (state.gameOver || state.currentTurn !== HUMAN || state.board[index]) {
+						return;
+					}
+
+					state.board[index] = HUMAN;
+					createBoard();
+
+					if (evaluateRound()) {
+						return;
+					}
+
+					state.currentTurn = BOT;
+					setStatus("BrickBot is thinking...");
+					createBoard();
+
+					window.setTimeout(() => {
+						if (state.gameOver) {
+							return;
+						}
+
+						const bestMove = getBestMove([...state.board]);
+						state.board[bestMove] = BOT;
+						createBoard();
+
+						if (evaluateRound()) {
+							return;
+						}
+
+						state.currentTurn = HUMAN;
+						setStatus("Your turn. Place an X.");
+						createBoard();
+					}, 350);
+				}
+
+				function resetBoard() {
+					state.board = Array(9).fill("");
+					state.currentTurn = HUMAN;
+					state.gameOver = false;
+					setStatus("Your turn. Place an X.");
+					createBoard();
+				}
+
+				restartButton.addEventListener("click", resetBoard);
+				updateScoreboard();
+				resetBoard();
+			})();
+		</script>
 	</body>
 </html>
